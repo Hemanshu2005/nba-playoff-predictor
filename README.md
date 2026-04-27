@@ -5,41 +5,92 @@ An end-to-end machine learning pipeline for predicting NBA playoff outcomes usin
 ## Pipeline Overview
 
 ```
-NBA API + News/Reddit
-        ↓
-   Kalman Filter          — smooths noisy game-to-game stats into true performance signal
-        ↓
-  Stacking Classifier     — XGBoost + Random Forest base learners, Logistic Regression meta
-        ↓  (NLP sentiment fed in parallel)
-  Monte Carlo Simulation  — 10,000 bracket iterations → championship odds with confidence intervals
-        ↓
-  Streamlit Dashboard     — live standings, bracket odds, matchup predictor, injury alerts
+   Data Source 1                        Data Source 2
+   NBA API                              NewsAPI + Reddit
+   (stats, ratings, matchups)           (analyst articles, game reports)
+        │                                      │
+        └──────────────┬────────────────────────┘
+                       ↓
+              Kalman Filter
+       (cleans noisy game-to-game data →
+        extracts true performance signal)
+                       ↓
+        ┌──────────────────────────────────┐
+        │     Three-Layer Stacking         │
+        │  ─────────────────────────────   │
+        │  Layer 1A: XGBoost               │  ← runs in parallel
+        │  (gradient boosting classifier)  │
+        │                                  │
+        │  Layer 1B: Random Forest         │  ← runs in parallel
+        │  (bagging ensemble classifier)   │
+        │                                  │
+        │  Layer 2:  Logistic Regression   │  ← meta-learner
+        │  (combines Layer 1A + 1B output) │
+        │                                  │
+        │  NLP Sentiment fed in alongside  │
+        │  stats as an additional feature  │
+        └──────────────────────────────────┘
+                       ↓
+          Monte Carlo Simulation
+      (10,000 bracket simulations →
+       championship odds per team)
+                       ↓
+         Streamlit Dashboard
+  (live standings, bracket odds, matchup
+   predictor, sentiment heatmap, alerts)
 ```
+
+---
+
+## How the Three-Algorithm Stack Works
+
+This project uses a **stacking classifier** — a two-level ensemble where multiple models work together rather than a single model making all decisions.
+
+**Layer 1 — Two base learners running in parallel:**
+
+| Algorithm | Role | Why it's here |
+|-----------|------|--------------|
+| **XGBoost** | Gradient boosting — builds trees sequentially, each one correcting the errors of the previous | Strong at capturing non-linear relationships in tabular stats data |
+| **Random Forest** | Bagging — builds hundreds of trees independently and averages them | Reduces variance; fails differently to XGBoost so the combination is more robust |
+
+XGBoost and Random Forest are run on the same input data **simultaneously**. Each produces its own win probability estimate.
+
+**Layer 2 — Meta-learner combining both:**
+
+| Algorithm | Role |
+|-----------|------|
+| **Logistic Regression** | Takes the outputs of XGBoost AND Random Forest as its inputs and learns the optimal way to combine them into one final prediction |
+
+Logistic Regression is used as the meta-learner because it is interpretable — you can see exactly how much weight it gives to each base model's prediction. This mirrors how risk models at financial institutions are required to be explainable.
+
+**Why three instead of one?**
+A single algorithm has blind spots. XGBoost can overfit; Random Forest can underfit rare playoff matchup patterns. Stacking lets each model compensate for the other's weaknesses, with Logistic Regression learning which to trust more in which situations.
+
+---
 
 ## Features
 
 ### Data Layer
 - **NBA API** — RPM/RAPM proxies, True Shooting %, Usage Rate, Net/Off/Def Rating, BPM, VORP, PIE, On/Off splits, rest days
-- **NewsAPI + Reddit (PRAW)** — analyst articles and r/nba posts filtered and weighted by source credibility
+- **NewsAPI + Reddit (PRAW)** — analyst articles and r/nba posts filtered and weighted by source credibility score
 
 ### Signal Processing
-- **Kalman Filter** — extracts true team/player performance level from noisy game observations; same technique used in algorithmic trading to separate signal from price noise
+- **Kalman Filter** — smooths noisy per-game stats into a stable estimate of true team/player performance level; same technique used in algorithmic trading to extract signal from price noise
 
 ### Prediction Engine
-- **Stacking Classifier**
-  - Base learner 1: **XGBoost** — gradient boosting with sequential error correction
-  - Base learner 2: **Random Forest** — bagging with parallel variance reduction
-  - Meta-learner: **Logistic Regression** — interpretable combination of base predictions
-- **NLP Sentiment** — VADER sentiment scored on credibility-weighted news sources; fed as a feature alongside stats
+- **XGBoost** (base learner 1) — gradient boosting on Kalman-filtered stats + sentiment features
+- **Random Forest** (base learner 2) — parallel bagging ensemble on the same features
+- **Logistic Regression** (meta-learner) — combines XGBoost and Random Forest predictions into final win probability
+- **NLP Sentiment** — VADER sentiment on credibility-weighted news sources; injected as a feature into both base learners
 
 ### Bracket Simulation
-- **Monte Carlo** — simulates the full playoff bracket 10,000+ times using per-matchup win probabilities from the stacking classifier; outputs championship odds, finals probabilities, and expected series lengths
+- **Monte Carlo** — simulates the full playoff bracket 10,000+ times using the stacked classifier's win probabilities; outputs championship odds, finals probabilities, and expected series lengths per matchup
 
 ### Dashboard (Streamlit)
 - Live standings with Kalman-smoothed net ratings
 - Championship probability bar charts updated after each game
 - Credibility-weighted sentiment heatmap per team
-- Injury signal alerts from news
+- Injury signal alerts from news sources
 - Head-to-head matchup predictor with win probability gauges
 
 ## Quantitative Methods Used
