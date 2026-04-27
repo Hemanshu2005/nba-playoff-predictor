@@ -53,21 +53,58 @@ NBA API + News/Reddit
 | Monte Carlo Simulation | Value-at-Risk, options pricing, stress testing |
 | Credibility-weighted NLP | Analyst sentiment weighting in equity research |
 
-## Setup
+## CI/CD
+
+![CI](https://github.com/Hemanshu2005/nba-playoff-predictor/actions/workflows/test.yml/badge.svg)
+
+Every push to `master` triggers a GitHub Actions pipeline that runs the full pytest suite across Kalman Filter, Monte Carlo, and NLP sentiment modules.
+
+```
+push → GitHub Actions → pytest tests/ → pass/fail badge
+```
+
+## Docker
+
+Run the full pipeline and dashboard in a single command — no local Python setup required:
+
+```bash
+cp .env.example .env
+# Add your API keys to .env
+docker compose up --build
+```
+
+Dashboard available at `http://localhost:8501`.
+
+To roll back to a previous working version:
+
+```bash
+git checkout <commit-hash>
+docker compose up --build
+```
+
+## Setup (without Docker)
 
 ```bash
 git clone https://github.com/Hemanshu2005/nba-playoff-predictor.git
 cd nba-playoff-predictor
-pip install -r requirements.txt
+pip install -r requirements.txt pytest
 cp .env.example .env
 # Add your NewsAPI and Reddit API keys to .env
 streamlit run dashboard/app.py
+```
+
+Run tests:
+
+```bash
+pytest tests/ -v
 ```
 
 ## Project Structure
 
 ```
 nba-playoff-predictor/
+├── .github/workflows/
+│   └── test.yml              # GitHub Actions CI pipeline
 ├── data/
 │   ├── fetch_nba.py          # NBA API data ingestion
 │   └── fetch_news.py         # NewsAPI + Reddit fetching with credibility weights
@@ -80,6 +117,9 @@ nba-playoff-predictor/
 │   └── sentiment.py            # VADER sentiment with source credibility weighting
 ├── dashboard/
 │   └── app.py                  # Streamlit dashboard
+├── tests/                      # pytest test suite
+├── Dockerfile
+├── docker-compose.yml
 └── requirements.txt
 ```
 
