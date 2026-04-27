@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.py[cod]
+*.pkl
+*.joblib
+.venv/
+venv/
+env/
+data/injury_report.csv
+models/stacking_model.pkl
+.DS_Store
