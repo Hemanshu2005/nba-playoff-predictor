@@ -22,5 +22,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt pytest
 
-      - name: Run tests
+      - name: "TDD Stage 1 — Unit: Kalman Filter"
+        run: pytest tests/test_kalman.py -v --tb=short
+
+      - name: "TDD Stage 2 — Unit: NLP Sentiment"
+        run: pytest tests/test_sentiment.py -v --tb=short
+
+      - name: "TDD Stage 3 — Unit: Monte Carlo Simulation"
+        run: pytest tests/test_monte_carlo.py -v --tb=short
+
+      - name: "TDD Stage 4 — Unit: Stacking Classifier"
+        run: pytest tests/test_stacking_classifier.py -v --tb=short
+
+      - name: "TDD Stage 5 — Full Suite"
         run: pytest tests/ -v --tb=short
